@@ -10,4 +10,4 @@ def recalc_cart(cart):
         cart.final_price = 0
     # рахує кількість продуктів в корзині
     cart.total_products = cart_data['id__count']
-    cart.save
+    cart.save()

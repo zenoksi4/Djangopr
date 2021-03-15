@@ -7,5 +7,11 @@
       <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
       <jdbc-url>jdbc:sqlite:D:\webdj\pashek\db.sqlite3</jdbc-url>
     </data-source>
+    <data-source source="LOCAL" name="SQLite - db.sqlite3" uuid="4a65ecfa-899d-426a-a5f7-a4b08917a1fa">
+      <driver-ref>sqlite.xerial</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
+      <jdbc-url>jdbc:sqlite:$PROJECT_DIR$/pashek/db.sqlite3</jdbc-url>
+    </data-source>
   </component>
 </project>

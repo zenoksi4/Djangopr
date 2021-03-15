@@ -1,89 +1,17 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes.fields import GenericForeignKey
 from django.urls import reverse
 from django.utils import timezone
 
 
 User = get_user_model()
 
-def get_models_for_count(*model_names):
-    return [models.Count(model_name) for model_name in model_names]
-
-
-def get_product_url(obj, viewname):
-    ct_model = obj.__class__._meta.model_name
-    return reverse(viewname,  kwargs={'ct_model': ct_model, 'slug': obj.slug})
-
-
-
-
-
-
-
-class   MinResolutionErrorException(Exception):
-    pass
-
-class   MaxResolutionErrorException(Exception):
-    pass
-
-
-
-
-
-class LatestProductsManager:
-
-    @staticmethod
-    def get_products_for_main_page(*args, **kwargs):
-        with_respect_to = kwargs.get('with_respect_to')
-        products = []
-        ct_models = ContentType.objects .filter(model__in=args)
-        for ct_model in ct_models:
-            model_products = ct_model.model_class()._base_manager.all().order_by('id')[:5]
-            products.extend(model_products)
-        if with_respect_to:
-            ct_model = ContentType.objects.filter(model=with_respect_to)
-            if ct_model.exists():
-                if with_respect_to in args:
-                    return sorted(
-                        products, key=lambda x: x.__class__._meta.model_name.startswith(with_respect_to), reverse=True
-                    )
-        return products
-
-
-class LatestProducts:
-
-    objects = LatestProductsManager()
-
-
-class CategoryManager(models.Manager):
-
-    CATEGORY_NAME_COUNT_NAME = {
-        'Ноутбуки': 'notebook__count',
-        'Смартфони': 'smartphone__count'
-    }
-
-    def get_queryset(self):
-        return super().get_queryset()
-
-    def get_categories_for_left_sidebar(self):
-        models = get_models_for_count('notebook', 'smartphone')
-        qs = list(self.get_queryset().annotate(*models))
-        data = [
-            dict(name=c.name, url=c.get_absolute_url(), count=getattr(c, self.CATEGORY_NAME_COUNT_NAME[c.name]))
-            for c in qs
-        ]
-        return data
-
-
-
 
 class Category(models.Model):
 
-    name = models.CharField(max_length=255,verbose_name="Ім'я категорії")
+    name = models.CharField(max_length=255, verbose_name="Ім'я категорії")
     slug = models.SlugField(unique=True)
-    objects = CategoryManager()
 
     def __str__(self):
         return self.name
@@ -91,40 +19,106 @@ class Category(models.Model):
     def get_absolute_url(self):
         return reverse('category_detail', kwargs={'slug': self.slug})
 
+    # def get_fields_for_filter_in_template(self):
+    #     return ProductFeatures.objects.filter(
+    #         category=self,
+    #         use_in_filter=True
+    #     ).prefetch_related('category').value('feature_key', 'feature_measure', 'feature_name', 'filter_type')
+
+
+
 class Product(models.Model):
 
-
-    class Meta:
-        abstract = True
-
     category = models.ForeignKey(Category, verbose_name="Категорія", on_delete=models.CASCADE)
-    title = models.CharField(max_length=255,verbose_name="Найменування")
+    title = models.CharField(max_length=255, verbose_name="Найменування")
     slug = models.SlugField(unique=True)
     image = models.ImageField(verbose_name="Зображення")
     description = models.TextField(verbose_name="Опис", null=True)
     price = models.DecimalField(max_digits=9, decimal_places=2, verbose_name="Ціна")
 
     def __str__(self):
-        return  self.title
+        return self.title
 
     def get_model_name(self):
         return self.__class__.__name__.lower()
+
+    def get_absolute_url(self):
+        return reverse('product_detail', kwargs={'slug': self.slug})
+
+#характеристики
+# class ProductFeatures(models.Model):
+#
+#     RADIO = 'radio'
+#     CHECKBOX = 'checkbox'
+#
+#     FILTER_TYPE_CHOICES = (
+#         (RADIO, 'Радіокнопка')
+#         (CHECKBOX, 'Чекбокс')
+#     )
+#     feature_key = models.CharField(max_length=100, verbose_name='Ключ характеристики')
+#     feature_name = models.CharField(max_length=255, verbose_name='Найменування характеристики')
+#     category = models.ForeignKey(Category, verbose_name='Категорія', on_delete=models.CASCADE)
+#     postfix_for_value = models.CharField(
+#         max_length=20,
+#         null=True,
+#         blank=True,
+#         verbose_name='Постфікс для значення',
+#         help_text=f'Наприклад для характеристики "Години роботи" до'
+#                   f' значення можна добавити постфікс "годин", і як результат - значення "10 годин"'
+#     )
+#     use_in_filter = models.BooleanField(
+#         default=False,
+#         verbose_name='Використовувати фільтрації товарів в шаблоні'
+#     )
+#     filter_type = models.CharField(
+#         max_length=20,
+#         verbose_name='Тип фільтра',
+#         default=CHECKBOX,
+#         choices=FILTER_TYPE_CHOICES
+#     )
+#
+#     filter_measure = models.CharField(
+#         max_length=50,
+#         verbose_name='Одиниця вимірювання для фільтра',
+#         help_text='Одиниця вимірювання для конкретного фільтра. Наприклад "Частота процессора (Ghz). '
+#                   'Одиницею вимірювання буде інформація в дужках"'
+#     )
+#
+#     def __str__(self):
+#         return f'Категорія - "{self.category.name}" | Характеристика - "{self.feature_name}"'
+#
+# #перевірка характеристик
+# class ProductFeatureValidators(models.Model):
+#
+#     category = models.ForeignKey(Category, verbose_name='Категорія', on_delete=models.CASCADE)
+#     feature = models.ForeignKey(
+#         ProductFeatures, verbose_name='Характеристика', null=True, blank=True, on_delete=models.CASCADE
+#     )
+#     feature_value = models.CharField(
+#         max_length=255, unique=True, null=True, blank=True, verbose_name='Значення характеристики'
+#     )
+#
+#     def __str__(self):
+#         if not self.feature:
+#             return f'Валідатор категорії "{self.category.name}" - характеристика не вибрана'
+#         return f'Валідатор категорії "{self.category.name} |' \
+#                f'Характеристика - "{self.feature.feature_name}" | '\
+#                f'Значення - "{self.feature_value}"'
+#
 
 class CartProduct(models.Model):
 
     user = models.ForeignKey("customer", verbose_name="Покупець", on_delete=models.CASCADE)
     cart = models.ForeignKey("cart", verbose_name="Корзина", on_delete=models.CASCADE, related_name='related_products')
-    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    object_id = models.PositiveIntegerField()
-    content_object = GenericForeignKey('content_type', 'object_id')
+    product = models.ForeignKey(Product, verbose_name='Товар', on_delete=models.CASCADE)
     qty = models.PositiveIntegerField(default=1)
     final_price = models.DecimalField(max_digits=9, decimal_places=2, verbose_name="Загальна ціна")
 
     def __str__(self):
-        return "Продукт: {} (для корзини)".format(self.content_object.title)
+        return "Продукт: {} (для корзини)".format(self.product.title)
 
     def save(self, *args, **kwargs):
-        self.final_price = self.qty * self.content_object.price
+        self.final_price = self.qty * self.product.price
         super().save(*args, **kwargs)
 
 
@@ -143,9 +137,6 @@ class Cart(models.Model):
 
 
 
-
-
-
 class Customer(models.Model):
 
     user = models.ForeignKey(User, verbose_name="Користувач", on_delete=models.CASCADE)
@@ -157,41 +148,6 @@ class Customer(models.Model):
         return "Покупець: {} {}".format(self.user.first_name, self.user.last_name)
 
 
-
-class Notebook(Product):
-
-    diagonal = models.CharField(max_length=255, verbose_name="Діагональ")
-    display = models.CharField(max_length=255, verbose_name='Тип дисплея')
-    processor_freq = models.CharField(max_length=255, verbose_name="Частота процессора")
-    ram = models.CharField(max_length=255, verbose_name="Оперативна пам'ять")
-    video = models.CharField(max_length=255, verbose_name="Відеокарта")
-    time_without_charge = models.CharField(max_length=255, verbose_name="Час роботи батареї")
-
-    def __str__(self):
-        return "{} : {}".format(self.category.name, self.title)
-
-    def get_absolute_url(self):
-        return  get_product_url(self, 'product_detail')
-
-
-class Smartphone(Product):
-    diagonal = models.CharField(max_length=255, verbose_name="Діагональ")
-    display = models.CharField(max_length=255, verbose_name='Тип дисплея')
-    resolution = models.CharField(max_length=255, verbose_name="Розширення екрана")
-    accum_volume = models.CharField(max_length=255, verbose_name="об'єм батареї")
-    ram = models.CharField(max_length=255, verbose_name="Оперативна пам'ять")
-    sd = models.BooleanField(default=True, verbose_name='Наявність SD карти')
-    sd_volume_max = models.CharField(
-        max_length=255, null=True, blank=True, verbose_name="Максимальний об'єм встроєної пам'яті"
-    )
-    main_cam_mp = models.CharField(max_length=255, verbose_name="Головна камера")
-    frontal_cam_mp = models.CharField(max_length=255, verbose_name="Фронтальна камера")
-
-    def get_absolute_url(self):
-        return  get_product_url(self, 'product_detail')
-
-    def __str__(self):
-        return "{} : {}".format(self.category.name, self.title)
 
 #Модель Замовлення
 class Order(models.Model):
