@@ -4,7 +4,7 @@ from django.test import TestCase, RequestFactory
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from .models import Category, Notebook, CartProduct, Cart, Customer
+from .models import Category, CartProduct, Cart, Customer
 from .views import recalc_cart, AddToCartView, BaseView
 
 User = get_user_model()
